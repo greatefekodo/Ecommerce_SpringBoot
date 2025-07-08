@@ -1,0 +1,8 @@
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.stage.env 
+# Maven build folder
+/target/
