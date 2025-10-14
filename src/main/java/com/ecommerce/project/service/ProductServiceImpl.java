@@ -1,5 +1,6 @@
 package com.ecommerce.project.service;
 
+import com.ecommerce.project.aws.AWSS3Service;
 import com.ecommerce.project.exceptions.APIException;
 import com.ecommerce.project.exceptions.ResourceNotFoundException;
 import com.ecommerce.project.model.Cart;
@@ -23,7 +24,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.net.URL;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -53,12 +56,18 @@ public class ProductServiceImpl implements ProductService {
     @Value("${image.base.url}")
     private String imageBaseUrl;
 
+    @Autowired
+    private AWSS3Service aWSS3Service;
+
 
     @Override
     public ProductDTO addProduct(Long categoryId, ProductDTO productDTO) {
         Category category = categoryRepository.findById(categoryId)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Category", "id", categoryId));
+
+        String imageUrl = null;
+
 
         boolean isProductNotPresent = true;
 
@@ -73,8 +82,19 @@ public class ProductServiceImpl implements ProductService {
 
         if (isProductNotPresent) {
 
+            MultipartFile imageFile = productDTO.getImageFile();
+
+            if (imageFile == null || imageFile.isEmpty()) {
+                throw new APIException("Product Image is required");
+            }
+
+            String imageName = UUID.randomUUID() + "_" + imageFile.getOriginalFilename();
+            URL s3Url = aWSS3Service.uploadFile("product/" + imageName, imageFile);
+            imageUrl = s3Url.toString();
+
+
             Product product = modelMapper.map(productDTO, Product.class);
-            product.setImage("default.png");
+            product.setImage(imageUrl);
             product.setCategory(category);
             double specialPrice = product.getPrice() -
                     ((product.getDiscount() * 0.01) * product.getPrice());
@@ -111,7 +131,8 @@ public class ProductServiceImpl implements ProductService {
          List<ProductDTO> productDTOS = products.stream()
                  .map(product -> {
                      ProductDTO productDTO = modelMapper.map(product, ProductDTO.class);
-                     productDTO.setImage(constructImageUrl(product.getImage()));
+//                     productDTO.setImageFile(constructImageUrl(product.getImage()));
+                     productDTO.setImage(product.getImage());
                      return productDTO;
                  })
 
@@ -130,9 +151,9 @@ public class ProductServiceImpl implements ProductService {
         return productResponse;
     }
 
-    private String constructImageUrl(String imageName) {
-        return imageBaseUrl.endsWith("/") ? imageBaseUrl + imageName : imageBaseUrl + "/" + imageName;
-    }
+//    private String constructImageUrl(String imageName) {
+//        return imageBaseUrl.endsWith("/") ? imageBaseUrl + imageName : imageBaseUrl + "/" + imageName;
+//    }
 
     @Override
     public ProductResponse searchByCategory(Long categoryId, Integer pageNumber, Integer pageSize, String sortBy, String sortOrder) {
@@ -201,6 +222,22 @@ public class ProductServiceImpl implements ProductService {
         Product productFromDb = productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", "productId", productId));
 
+        String imageUrl = productFromDb.getImage();
+        MultipartFile imageFile = productDTO.getImageFile();
+
+        if (imageFile != null && !imageFile.isEmpty()) {
+            if (imageUrl != null && !imageUrl.isEmpty()) {
+                String keyName = imageUrl.substring(imageUrl.lastIndexOf("/") + 1);
+                aWSS3Service.deleteFile("product/" + keyName);
+            }
+        }
+
+        String imageName = UUID.randomUUID() + "_" + imageFile.getOriginalFilename();
+        URL s3Url = aWSS3Service.uploadFile("product/" + imageName, imageFile);
+        imageUrl = s3Url.toString();
+
+        productDTO.setImage(imageUrl);
+
         Product product = modelMapper.map(productDTO, Product.class);
 
         //Update the product info with the one in request body
@@ -210,6 +247,7 @@ public class ProductServiceImpl implements ProductService {
         productFromDb.setQuantity(product.getQuantity());
         productFromDb.setDiscount(product.getDiscount());
         productFromDb.setSpecialPrice(product.getSpecialPrice());
+        productFromDb.setImage(product.getImage());
 
         //save to DB
         Product savedProduct = productRepository.save(productFromDb);
@@ -226,7 +264,7 @@ public class ProductServiceImpl implements ProductService {
 
             return cartDTO;
 
-        }).collect(Collectors.toList());
+        }).toList();
 
         cartDTOs.forEach(cart -> cartService.updateProductInCarts(cart.getCartId(), productId));
 

@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class AuthUtil {
+
     @Autowired
     UserRepository userRepository;
 
@@ -37,4 +38,6 @@ public class AuthUtil {
         return user;
 
     }
+
+
 }

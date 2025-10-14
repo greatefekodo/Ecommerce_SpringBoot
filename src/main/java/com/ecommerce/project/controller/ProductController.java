@@ -7,6 +7,7 @@ import com.ecommerce.project.service.ProductService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -21,11 +22,17 @@ public class ProductController {
     ProductService productService;
 
 
-    @PostMapping("/admin/categories/{categoryId}/product")
-    public ResponseEntity<ProductDTO> addProduct(@Valid @RequestBody ProductDTO productDTO,
-                                                 @PathVariable Long categoryId) {
+    @PostMapping(
+            value = "/admin/categories/{categoryId}/product",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    public ResponseEntity<ProductDTO> addProduct(
+            @PathVariable Long categoryId,
+            @ModelAttribute("productDTO") @Valid ProductDTO productDTO,
+            @RequestPart("imageFile") MultipartFile imageFile
+    ) {
         ProductDTO savedProductDTO = productService.addProduct(categoryId, productDTO);
-    return new ResponseEntity<>(savedProductDTO, HttpStatus.CREATED);
+        return new ResponseEntity<>(savedProductDTO, HttpStatus.CREATED);
     }
 
     @GetMapping("/public/products")
@@ -62,13 +69,19 @@ public class ProductController {
 
     }
 
-    @PutMapping("/admin/products/{productId}")
-    public ResponseEntity<ProductDTO> updateProduct(@Valid @RequestBody ProductDTO productDTO,
-                                                    @PathVariable Long productId) {
+    @PutMapping(
+            value = "/admin/products/{productId}",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    public ResponseEntity<ProductDTO> updateProduct(
+            @PathVariable Long productId,
+            @ModelAttribute("productDTO") @Valid ProductDTO productDTO,
+            @RequestPart(value = "imageFile", required = false) MultipartFile imageFile
+    ) {
         ProductDTO updatedProductDTO = productService.updateProduct(productId, productDTO);
         return new ResponseEntity<>(updatedProductDTO, HttpStatus.OK);
-
     }
+
 
     @DeleteMapping("/admin/products/{productId}")
     public ResponseEntity<ProductDTO> deleteProduct(@PathVariable Long productId) {
