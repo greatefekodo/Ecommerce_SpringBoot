@@ -71,7 +71,7 @@ public class WebSecurityConfig {
                 "https://localhost:*",
                 "http://127.0.0.1:*",
                 "https://127.0.0.1:*",
-                "http://ecommerce-shopping.s3-website-us-east-1.amazonaws.com"
+                "https://ecommerceshoppingwebsiteapplication.netlify.app/"
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("*"));
